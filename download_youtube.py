@@ -1,4 +1,5 @@
-from pytube import YouTube 
+from pytubefix import YouTube
+
 
 def download_video(yt):
   highresvid = yt.streams.get_highest_resolution()
