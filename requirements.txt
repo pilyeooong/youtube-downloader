@@ -15,7 +15,9 @@ proglog==0.1.10
 pyinstaller==6.3.0
 pyinstaller-hooks-contrib==2024.0
 pytube==15.0.0
+pytubefix==6.7.0
 requests==2.30.0
 tqdm==4.65.0
 urllib3==1.26.6
+yt-dlp==2024.11.4
 zipp==3.17.0
