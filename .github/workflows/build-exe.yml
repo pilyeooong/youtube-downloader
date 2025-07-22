@@ -1,0 +1,35 @@
+name: Build Windows EXE
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+  workflow_dispatch:
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install pyinstaller PyQt5 yt-dlp
+    
+    - name: Build EXE
+      run: |
+        pyinstaller --onefile --windowed --name=YouTube-Downloader --icon=assets/youtube_downloader_icon.ico --hidden-import=PyQt5 --hidden-import=yt_dlp --hidden-import=urllib3 --hidden-import=certifi --hidden-import=requests src/youtube_gui_pyqt.py
+    
+    - name: Upload artifact
+      uses: actions/upload-artifact@v3
+      with:
+        name: YouTube-Downloader-Windows
+        path: dist/YouTube-Downloader.exe
