@@ -2,9 +2,8 @@ name: Build Windows EXE
 
 on:
   push:
-    branches: [ master ]
-  pull_request:
-    branches: [ master ]
+    tags:
+      - 'v*'
   workflow_dispatch:
 
 jobs:
@@ -33,3 +32,12 @@ jobs:
       with:
         name: YouTube-Downloader-Windows
         path: dist/YouTube-Downloader.exe
+    
+    - name: Create Release
+      if: startsWith(github.ref, 'refs/tags/')
+      uses: softprops/action-gh-release@v1
+      with:
+        files: dist/YouTube-Downloader.exe
+        generate_release_notes: true
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
