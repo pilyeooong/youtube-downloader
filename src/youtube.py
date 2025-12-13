@@ -5,7 +5,7 @@ url = input()
 # Configure options if necessary
 ydl_opts = {
     'outtmpl': '%(title)s.%(ext)s',  # Set filename format
-    'format': 'best',  # Choose the best available quality
+    'format': 'bestvideo*+bestaudio/best',  # Choose the best available quality
 }
 
 with yt_dlp.YoutubeDL(ydl_opts) as ydl:

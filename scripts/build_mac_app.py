@@ -11,6 +11,11 @@ import sys
 def build_mac_app():
     """PyQt5 GUI 버전을 macOS .app 번들로 빌드"""
     
+    # ffmpeg 경로 찾기
+    import shutil
+    ffmpeg_path = shutil.which('ffmpeg')
+    ffprobe_path = shutil.which('ffprobe')
+
     cmd = [
         'pyinstaller',
         '--onefile',                    # 단일 실행파일
@@ -23,8 +28,17 @@ def build_mac_app():
         '--hidden-import=urllib3',
         '--hidden-import=certifi',
         '--hidden-import=requests',
-        '../src/youtube_gui_pyqt.py'
     ]
+
+    # ffmpeg, ffprobe 포함
+    if ffmpeg_path:
+        cmd.append(f'--add-binary={ffmpeg_path}:.')
+        print(f"ffmpeg 포함: {ffmpeg_path}")
+    if ffprobe_path:
+        cmd.append(f'--add-binary={ffprobe_path}:.')
+        print(f"ffprobe 포함: {ffprobe_path}")
+
+    cmd.append('../src/youtube_gui_pyqt.py')
     
     print("macOS .app 번들 빌드 시작...")
     print(f"명령어: {' '.join(cmd)}")

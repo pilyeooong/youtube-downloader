@@ -1,12 +1,22 @@
 import sys
-from PyQt5.QtWidgets import (QApplication, QMainWindow, QVBoxLayout, QHBoxLayout, 
-                           QWidget, QLabel, QLineEdit, QPushButton, QTextEdit, 
+from PyQt5.QtWidgets import (QApplication, QMainWindow, QVBoxLayout, QHBoxLayout,
+                           QWidget, QLabel, QLineEdit, QPushButton, QTextEdit,
                            QFileDialog, QRadioButton, QButtonGroup, QProgressBar,
                            QMessageBox)
 from PyQt5.QtCore import QThread, pyqtSignal, QTimer
 from PyQt5.QtGui import QFont
 import yt_dlp
 import os
+
+def get_ffmpeg_path():
+    """번들된 ffmpeg 경로 또는 시스템 ffmpeg 반환"""
+    if getattr(sys, 'frozen', False):
+        # PyInstaller 번들 내부
+        base_path = sys._MEIPASS
+        ffmpeg = os.path.join(base_path, 'ffmpeg')
+        if os.path.exists(ffmpeg):
+            return base_path
+    return None
 
 class DownloadThread(QThread):
     progress_signal = pyqtSignal(str)
@@ -22,21 +32,23 @@ class DownloadThread(QThread):
         try:
             self.progress_signal.emit(f"다운로드 시작: {self.url}")
             
-            if self.quality == "bestaudio[ext=m4a]":
-                ydl_opts = {
-                    'format': self.quality,
-                    'outtmpl': os.path.join(self.output_path, '%(title)s.%(ext)s'),
-                    'postprocessors': [{
-                        'key': 'FFmpegExtractAudio',
-                        'preferredcodec': 'mp3',
-                        'preferredquality': '192',
-                    }],
-                }
-            else:
-                ydl_opts = {
-                    'format': self.quality,
-                    'outtmpl': os.path.join(self.output_path, '%(title)s.%(ext)s'),
-                }
+            # 기본 옵션
+            ydl_opts = {
+                'format': self.quality,
+                'outtmpl': os.path.join(self.output_path, '%(title)s.%(ext)s'),
+            }
+
+            # 번들된 ffmpeg 경로 설정
+            ffmpeg_path = get_ffmpeg_path()
+            if ffmpeg_path:
+                ydl_opts['ffmpeg_location'] = ffmpeg_path
+
+            if self.quality == "bestaudio[ext=m4a]/bestaudio":
+                ydl_opts['postprocessors'] = [{
+                    'key': 'FFmpegExtractAudio',
+                    'preferredcodec': 'mp3',
+                    'preferredquality': '192',
+                }]
             
             class MyLogger:
                 def __init__(self, thread):
@@ -157,10 +169,10 @@ class YouTubeDownloader(QMainWindow):
     
     def get_selected_quality(self):
         quality_map = {
-            0: 'best',
-            1: 'best[height<=720]',
-            2: 'best[height<=480]',
-            3: 'bestaudio[ext=m4a]'
+            0: 'bestvideo*+bestaudio/best',
+            1: 'bestvideo*[height<=720]+bestaudio/best[height<=720]',
+            2: 'bestvideo*[height<=480]+bestaudio/best[height<=480]',
+            3: 'bestaudio[ext=m4a]/bestaudio'
         }
         return quality_map[self.quality_group.checkedId()]
     
