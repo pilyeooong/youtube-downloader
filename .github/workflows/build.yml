@@ -32,7 +32,7 @@ jobs:
 
       - name: Build exe
         run: |
-          pyinstaller --onefile --windowed --name=YouTube-Downloader --hidden-import=PyQt5 --hidden-import=yt_dlp --hidden-import=urllib3 --hidden-import=certifi --hidden-import=requests --add-binary="ffmpeg.exe;." --add-binary="ffprobe.exe;." src/youtube_gui_pyqt.py
+          pyinstaller --onefile --windowed --name=YouTube-Downloader --icon=assets/youtube_downloader_icon.ico --hidden-import=PyQt5 --hidden-import=yt_dlp --hidden-import=urllib3 --hidden-import=certifi --hidden-import=requests --add-binary="ffmpeg.exe;." --add-binary="ffprobe.exe;." src/youtube_gui_pyqt.py
 
       - name: Upload Windows artifact
         uses: actions/upload-artifact@v4
