@@ -30,9 +30,15 @@ jobs:
           move ffmpeg_temp\ffmpeg-master-latest-win64-gpl\bin\ffmpeg.exe ffmpeg.exe
           move ffmpeg_temp\ffmpeg-master-latest-win64-gpl\bin\ffprobe.exe ffprobe.exe
 
+      - name: Install deno
+        uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+
       - name: Build exe
         run: |
-          pyinstaller --onefile --windowed --name=YouTube-Downloader --icon=assets/youtube_downloader_icon.ico --hidden-import=PyQt5 --hidden-import=yt_dlp --hidden-import=urllib3 --hidden-import=certifi --hidden-import=requests --add-binary="ffmpeg.exe;." --add-binary="ffprobe.exe;." src/youtube_gui_pyqt.py
+          $DENO_PATH = (Get-Command deno).Source
+          pyinstaller --onefile --windowed --name=YouTube-Downloader --icon=assets/youtube_downloader_icon.ico --hidden-import=PyQt5 --hidden-import=yt_dlp --hidden-import=urllib3 --hidden-import=certifi --hidden-import=requests --add-binary="ffmpeg.exe;." --add-binary="ffprobe.exe;." --add-binary="${DENO_PATH};." src/youtube_gui_pyqt.py
 
       - name: Upload Windows artifact
         uses: actions/upload-artifact@v4
@@ -59,11 +65,17 @@ jobs:
       - name: Install ffmpeg
         run: brew install ffmpeg
 
+      - name: Install deno
+        uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+
       - name: Build app
         run: |
           FFMPEG_PATH=$(which ffmpeg)
           FFPROBE_PATH=$(which ffprobe)
-          pyinstaller --onefile --windowed --name=YouTube-Downloader --osx-bundle-identifier=com.youtube.downloader --hidden-import=PyQt5 --hidden-import=yt_dlp --hidden-import=urllib3 --hidden-import=certifi --hidden-import=requests --add-binary="${FFMPEG_PATH}:." --add-binary="${FFPROBE_PATH}:." src/youtube_gui_pyqt.py
+          DENO_PATH=$(which deno)
+          pyinstaller --onefile --windowed --name=YouTube-Downloader --osx-bundle-identifier=com.youtube.downloader --hidden-import=PyQt5 --hidden-import=yt_dlp --hidden-import=urllib3 --hidden-import=certifi --hidden-import=requests --add-binary="${FFMPEG_PATH}:." --add-binary="${FFPROBE_PATH}:." --add-binary="${DENO_PATH}:." src/youtube_gui_pyqt.py
 
       - name: Create DMG
         run: |

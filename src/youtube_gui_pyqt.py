@@ -8,10 +8,17 @@ from PyQt5.QtGui import QFont
 import yt_dlp
 import os
 
+def setup_bundled_binaries():
+    """번들된 바이너리(ffmpeg, deno 등)를 PATH에 추가"""
+    if not getattr(sys, 'frozen', False):
+        return
+    base_path = sys._MEIPASS
+    # 번들 경로를 PATH 맨 앞에 추가하면 ffmpeg, deno 모두 자동 인식
+    os.environ['PATH'] = base_path + os.pathsep + os.environ.get('PATH', '')
+
 def get_ffmpeg_path():
     """번들된 ffmpeg 경로 또는 시스템 ffmpeg 반환"""
     if getattr(sys, 'frozen', False):
-        # PyInstaller 번들 내부
         base_path = sys._MEIPASS
         ffmpeg = os.path.join(base_path, 'ffmpeg')
         if os.path.exists(ffmpeg):
@@ -36,6 +43,10 @@ class DownloadThread(QThread):
             ydl_opts = {
                 'format': self.quality,
                 'outtmpl': os.path.join(self.output_path, '%(title)s.%(ext)s'),
+                'merge_output_format': 'mp4',
+                'remote_components': ['ejs:github'],
+                'postprocessor_args': {'merger': ['-c:a', 'aac']},
+                'js_runtimes': {'deno': {}, 'node': {}, 'bun': {}},
             }
 
             # 번들된 ffmpeg 경로 설정
@@ -210,6 +221,7 @@ class YouTubeDownloader(QMainWindow):
         self.update_status(message)
 
 def main():
+    setup_bundled_binaries()
     app = QApplication(sys.argv)
     window = YouTubeDownloader()
     window.show()

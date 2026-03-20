@@ -38,6 +38,14 @@ def build_mac_app():
         cmd.append(f'--add-binary={ffprobe_path}:.')
         print(f"ffprobe 포함: {ffprobe_path}")
 
+    # deno 포함 (YouTube JS challenge 해결용)
+    deno_path = shutil.which('deno')
+    if deno_path:
+        cmd.append(f'--add-binary={deno_path}:.')
+        print(f"deno 포함: {deno_path}")
+    else:
+        print("경고: deno가 설치되어 있지 않습니다. YouTube 다운로드가 작동하지 않을 수 있습니다.")
+
     cmd.append('../src/youtube_gui_pyqt.py')
     
     print("macOS .app 번들 빌드 시작...")
