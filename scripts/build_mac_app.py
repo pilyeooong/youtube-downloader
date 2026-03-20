@@ -18,7 +18,7 @@ def build_mac_app():
 
     cmd = [
         'pyinstaller',
-        '--onefile',                    # 단일 실행파일
+        '--onedir',                     # .app 번들용 디렉토리 모드
         '--windowed',                   # GUI 모드 (콘솔 숨김)
         '--name=YouTube-Downloader',    # 앱 이름
         '--icon=../assets/youtube_downloader_icon.icns',  # YouTube 스타일 아이콘

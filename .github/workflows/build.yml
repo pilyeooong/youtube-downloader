@@ -75,7 +75,7 @@ jobs:
           FFMPEG_PATH=$(which ffmpeg)
           FFPROBE_PATH=$(which ffprobe)
           DENO_PATH=$(which deno)
-          pyinstaller --onefile --windowed --name=YouTube-Downloader --osx-bundle-identifier=com.youtube.downloader --hidden-import=PyQt5 --hidden-import=yt_dlp --hidden-import=urllib3 --hidden-import=certifi --hidden-import=requests --add-binary="${FFMPEG_PATH}:." --add-binary="${FFPROBE_PATH}:." --add-binary="${DENO_PATH}:." src/youtube_gui_pyqt.py
+          pyinstaller --onedir --windowed --name=YouTube-Downloader --osx-bundle-identifier=com.youtube.downloader --hidden-import=PyQt5 --hidden-import=yt_dlp --hidden-import=urllib3 --hidden-import=certifi --hidden-import=requests --add-binary="${FFMPEG_PATH}:." --add-binary="${FFPROBE_PATH}:." --add-binary="${DENO_PATH}:." src/youtube_gui_pyqt.py
 
       - name: Create DMG
         run: |
