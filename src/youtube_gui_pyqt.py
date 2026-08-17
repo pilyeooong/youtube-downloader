@@ -39,6 +39,58 @@ def find_js_runtimes():
             runtimes[rt] = {}
     return runtimes
 
+# yt-dlp 기본 클라이언트는 ('android_vr', 'web_safari') 다.
+# 403은 영상·클라이언트 조합에 따라 갈리므로(주로 GVS PO Token 요구) 다른 클라이언트로
+# 바꾸면 풀리는 경우가 많다.
+#
+# 아래 순서는 추측이 아니라 2026-08-17 실측으로 정했다 (4K 영상 / 2005년 영상):
+#   client         포맷수/최고화질            판정
+#   <기본>          37 / 2160p , 11 / 240p    -
+#   web_embedded   31 / 2160p , 15 / 240p    화질 보존 — 1순위
+#   tv_simply       5 /  360p ,  1 / 240p    화질 저하되나 동작 — 차선
+#   mweb            5 /  360p ,  1 / 240p    tv_simply 와 동급, 다른 경로로 한 번 더
+#   tv              5 /  360p , DRM 오류      구영상에서 실패 → 제외
+#   ios            포맷 없음   , 추출 실패     양쪽 다 실패 → 제외
+# 로그인이 필요한 tv_downgraded·web_creator 도 제외.
+#
+# YouTube 사정에 따라 위 수치는 변한다. 폴백이 잘 안 들으면 이 표부터 다시 측정할 것.
+FALLBACK_PLAYER_CLIENTS = ('web_embedded', 'tv_simply', 'mweb')
+
+# 기본만큼의 화질이 안 나오는 클라이언트. 이걸로 받았으면 사용자에게 알린다.
+_LOW_QUALITY_CLIENTS = ('tv_simply', 'mweb')
+
+# 클라이언트를 바꾸면 복구될 수 있는 실패 신호.
+# 'Requested format is not available' 은 PO Token 때문에 포맷이 통째로 스킵된 결과다.
+_CLIENT_RETRY_SIGNS = (
+    'http error 403',
+    'forbidden',
+    'po token',
+    'requested format is not available',
+)
+
+def is_client_retryable(error):
+    """player_client 를 바꿔 재시도할 가치가 있는 오류인지 판별."""
+    msg = str(error).lower()
+    return any(sign in msg for sign in _CLIENT_RETRY_SIGNS)
+
+class _ThreadLogger:
+    """yt-dlp 로그를 GUI 상태창으로 넘긴다."""
+
+    def __init__(self, thread):
+        self.thread = thread
+
+    def debug(self, msg):
+        pass
+
+    def info(self, msg):
+        self.thread.progress_signal.emit(f"정보: {msg}")
+
+    def warning(self, msg):
+        self.thread.progress_signal.emit(f"경고: {msg}")
+
+    def error(self, msg):
+        self.thread.progress_signal.emit(f"오류: {msg}")
+
 class DownloadThread(QThread):
     progress_signal = pyqtSignal(str)
     finished_signal = pyqtSignal(bool, str)
@@ -49,6 +101,35 @@ class DownloadThread(QThread):
         self.output_path = output_path
         self.quality = quality
     
+    def build_opts(self, js_runtimes, player_client=None):
+        """ydl 옵션 구성. player_client 를 주면 그 클라이언트만 강제한다."""
+        ydl_opts = {
+            'format': self.quality,
+            'outtmpl': os.path.join(self.output_path, '%(title)s.%(ext)s'),
+            'merge_output_format': 'mp4',
+            'remote_components': ['ejs:github'],
+            'postprocessor_args': {'merger': ['-c:a', 'aac']},
+            'js_runtimes': js_runtimes,
+            'logger': _ThreadLogger(self),
+        }
+
+        if player_client:
+            ydl_opts['extractor_args'] = {'youtube': {'player_client': [player_client]}}
+
+        # 번들된 ffmpeg 경로 설정
+        ffmpeg_path = get_ffmpeg_path()
+        if ffmpeg_path:
+            ydl_opts['ffmpeg_location'] = ffmpeg_path
+
+        if self.quality == "bestaudio[ext=m4a]/bestaudio":
+            ydl_opts['postprocessors'] = [{
+                'key': 'FFmpegExtractAudio',
+                'preferredcodec': 'mp3',
+                'preferredquality': '192',
+            }]
+
+        return ydl_opts
+
     def run(self):
         try:
             self.progress_signal.emit(f"다운로드 시작: {self.url}")
@@ -63,51 +144,44 @@ class DownloadThread(QThread):
                 )
                 return
 
-            # 기본 옵션
-            ydl_opts = {
-                'format': self.quality,
-                'outtmpl': os.path.join(self.output_path, '%(title)s.%(ext)s'),
-                'merge_output_format': 'mp4',
-                'remote_components': ['ejs:github'],
-                'postprocessor_args': {'merger': ['-c:a', 'aac']},
-                'js_runtimes': js_runtimes,
-            }
+            # 첫 시도는 yt-dlp 기본 클라이언트, 403 계열이면 클라이언트를 바꿔가며 재시도한다.
+            attempts = (None, *FALLBACK_PLAYER_CLIENTS)
+            last_error = None
 
-            # 번들된 ffmpeg 경로 설정
-            ffmpeg_path = get_ffmpeg_path()
-            if ffmpeg_path:
-                ydl_opts['ffmpeg_location'] = ffmpeg_path
+            for index, player_client in enumerate(attempts):
+                if player_client:
+                    self.progress_signal.emit(
+                        f"403 계열 오류로 실패 — player_client '{player_client}' 로 재시도합니다 "
+                        f"({index}/{len(FALLBACK_PLAYER_CLIENTS)})",
+                    )
 
-            if self.quality == "bestaudio[ext=m4a]/bestaudio":
-                ydl_opts['postprocessors'] = [{
-                    'key': 'FFmpegExtractAudio',
-                    'preferredcodec': 'mp3',
-                    'preferredquality': '192',
-                }]
-            
-            class MyLogger:
-                def __init__(self, thread):
-                    self.thread = thread
-                
-                def debug(self, msg):
-                    pass
-                
-                def info(self, msg):
-                    self.thread.progress_signal.emit(f"정보: {msg}")
-                
-                def warning(self, msg):
-                    self.thread.progress_signal.emit(f"경고: {msg}")
-                
-                def error(self, msg):
-                    self.thread.progress_signal.emit(f"오류: {msg}")
-            
-            ydl_opts['logger'] = MyLogger(self)
-            
-            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                ydl.download([self.url])
-            
-            self.finished_signal.emit(True, "다운로드 완료!")
-            
+                try:
+                    with yt_dlp.YoutubeDL(self.build_opts(js_runtimes, player_client)) as ydl:
+                        ydl.download([self.url])
+                except Exception as e:
+                    # 클라이언트를 바꿔도 소용없는 오류(비공개·삭제·네트워크 등)는 즉시 중단한다.
+                    if not is_client_retryable(e):
+                        raise
+                    last_error = e
+                    continue
+
+                done = "다운로드 완료!"
+                if player_client:
+                    done += f"\n\n기본 경로가 막혀 '{player_client}' 로 받았습니다."
+                    if player_client in _LOW_QUALITY_CLIENTS:
+                        done += ("\n이 경로는 낮은 화질(최대 360p)만 제공합니다.\n"
+                                 "고화질이 필요하면 잠시 후 다시 시도해 보세요.")
+                self.finished_signal.emit(True, done)
+                return
+
+            self.finished_signal.emit(
+                False,
+                "403 오류로 다운로드하지 못했습니다.\n"
+                f"기본 클라이언트와 {', '.join(FALLBACK_PLAYER_CLIENTS)} 를 모두 시도했습니다.\n\n"
+                "VPN을 쓰고 있다면 끄고, 잠시 후 다시 시도해 보세요.\n\n"
+                f"마지막 오류: {last_error}",
+            )
+
         except Exception as e:
             self.finished_signal.emit(False, f"오류 발생: {str(e)}")
 

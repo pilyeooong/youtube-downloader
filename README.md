@@ -129,6 +129,7 @@ python build_mac_app.py
 
 | 증상 | 원인 | 조치 |
 |---|---|---|
+| 특정 영상만 `HTTP Error 403` | 영상별 PO Token 요구 / IP 변경 / URL 만료 | **앱이 다른 player_client로 자동 재시도한다.** 그래도 실패하면 VPN을 끄고 잠시 후 재시도 |
 | `Signature extraction failed`, 화질이 낮은 것만 잡힘 | yt-dlp가 오래됨 | `pip install -U yt-dlp` / exe는 재빌드 |
 | `JS 런타임을 찾을 수 없습니다` | deno·node 없음 | deno 설치 후 재시도 |
 | 병합 실패, MP3 변환 실패 | ffmpeg/ffprobe 없음 | ffmpeg 설치 후 재시도 |
