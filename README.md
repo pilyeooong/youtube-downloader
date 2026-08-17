@@ -29,7 +29,22 @@ youtube-download/
 └── README.md                # 프로젝트 설명
 ```
 
-## 설치 및 실행
+## 최종 사용자용 (개발환경 없는 PC)
+
+파이썬·deno·ffmpeg 설치가 필요 없다. [Releases](../../releases)에서 받아 바로 실행한다.
+
+- Windows: `YouTube-Downloader.exe`
+- macOS: `YouTube-Downloader.dmg`
+
+Python 인터프리터, ffmpeg, ffprobe, deno가 모두 실행 파일 안에 들어 있다.
+
+> **yt-dlp는 실행 파일 안에 고정된다.** YouTube가 사양을 바꾸면 예전에 받은 exe는
+> "Signature extraction failed" / "Requested format is not available" 같은 오류를 내기 시작한다.
+> 이때는 코드 수정 없이 **새 태그를 밀어 exe를 다시 빌드**하면 최신 yt-dlp가 포함된다.
+
+> Windows SmartScreen이 서명되지 않은 exe를 막으면 `추가 정보 → 실행`으로 통과시킨다.
+
+## 개발자용 설치 및 실행
 
 ### 1. 의존성 설치
 
@@ -39,8 +54,26 @@ pyenv virtualenv youtube-download
 pyenv activate youtube-download
 
 # 필수 패키지 설치
-pip install yt-dlp PyQt5
+pip install -U -r requirements.txt
 ```
+
+### 1-1. 외부 바이너리 (소스로 실행할 때 필수)
+
+| 바이너리 | 용도 | 없으면 |
+|---|---|---|
+| `deno` (v2.3.0+) | YouTube JS 챌린지 해결 | 다운로드 자체가 실패 |
+| `ffmpeg`, `ffprobe` | 영상+음성 병합, MP3 변환 | 병합·변환 실패 |
+
+```bash
+# macOS
+brew install deno ffmpeg
+
+# Windows (winget)
+winget install DenoLand.Deno
+winget install Gyan.FFmpeg
+```
+
+yt-dlp 2025.11부터 YouTube 다운로드에 외부 JS 런타임이 **필수**다. `node` v22+도 쓸 수 있다.
 
 ### 2. 사용법
 
@@ -85,10 +118,21 @@ python build_mac_app.py
 
 ## 요구사항
 
-- Python 3.8+
-- yt-dlp
+- Python 3.11+ (yt-dlp 권장 최소 버전)
+- yt-dlp (최신 유지 필수 — `pip install -U yt-dlp`)
+- deno v2.3.0+ 또는 node v22+ (YouTube JS 챌린지)
+- ffmpeg / ffprobe (병합·MP3 변환)
 - PyQt5 (GUI 버전 사용시)
 - pyinstaller (EXE 파일 생성시)
+
+## 문제 해결
+
+| 증상 | 원인 | 조치 |
+|---|---|---|
+| `Signature extraction failed`, 화질이 낮은 것만 잡힘 | yt-dlp가 오래됨 | `pip install -U yt-dlp` / exe는 재빌드 |
+| `JS 런타임을 찾을 수 없습니다` | deno·node 없음 | deno 설치 후 재시도 |
+| 병합 실패, MP3 변환 실패 | ffmpeg/ffprobe 없음 | ffmpeg 설치 후 재시도 |
+| exe가 실행되자마자 종료 | 백신이 임시 폴더 추출 차단 | 예외 등록 후 재실행 |
 
 ## 지원 형식
 

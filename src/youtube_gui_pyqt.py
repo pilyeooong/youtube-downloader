@@ -7,6 +7,7 @@ from PyQt5.QtCore import QThread, pyqtSignal, QTimer
 from PyQt5.QtGui import QFont
 import yt_dlp
 import os
+import shutil
 
 def setup_bundled_binaries():
     """번들된 바이너리(ffmpeg, deno 등)를 PATH에 추가"""
@@ -20,10 +21,23 @@ def get_ffmpeg_path():
     """번들된 ffmpeg 경로 또는 시스템 ffmpeg 반환"""
     if getattr(sys, 'frozen', False):
         base_path = sys._MEIPASS
-        ffmpeg = os.path.join(base_path, 'ffmpeg')
-        if os.path.exists(ffmpeg):
+        # Windows 번들 바이너리는 ffmpeg.exe다. 확장자를 빼면 항상 탐지에 실패한다.
+        suffix = '.exe' if sys.platform == 'win32' else ''
+        if os.path.exists(os.path.join(base_path, 'ffmpeg' + suffix)):
             return base_path
     return None
+
+def find_js_runtimes():
+    """설치된 JS 런타임 탐색.
+
+    yt-dlp 2025.11부터 YouTube는 JS 챌린지 해결을 위해 외부 런타임을 요구한다.
+    bun은 2026.06.09에 지원 중단 예정으로 표시돼 제외한다.
+    """
+    runtimes = {}
+    for rt in ('deno', 'node'):
+        if shutil.which(rt):
+            runtimes[rt] = {}
+    return runtimes
 
 class DownloadThread(QThread):
     progress_signal = pyqtSignal(str)
@@ -38,7 +52,17 @@ class DownloadThread(QThread):
     def run(self):
         try:
             self.progress_signal.emit(f"다운로드 시작: {self.url}")
-            
+
+            js_runtimes = find_js_runtimes()
+            if not js_runtimes:
+                self.finished_signal.emit(
+                    False,
+                    "JS 런타임을 찾을 수 없습니다.\n\n"
+                    "YouTube 다운로드에는 deno 또는 node가 필요합니다.\n"
+                    "https://deno.com 에서 설치한 뒤 다시 시도하세요.",
+                )
+                return
+
             # 기본 옵션
             ydl_opts = {
                 'format': self.quality,
@@ -46,7 +70,7 @@ class DownloadThread(QThread):
                 'merge_output_format': 'mp4',
                 'remote_components': ['ejs:github'],
                 'postprocessor_args': {'merger': ['-c:a', 'aac']},
-                'js_runtimes': {'deno': {}, 'node': {}, 'bun': {}},
+                'js_runtimes': js_runtimes,
             }
 
             # 번들된 ffmpeg 경로 설정

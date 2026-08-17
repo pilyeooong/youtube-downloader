@@ -17,24 +17,35 @@ def build_exe():
         'pyinstaller',
         '--onefile',                    # 단일 exe 파일로 생성
         '--windowed',                   # 콘솔 창 숨김
+        '--noconfirm',
         '--name=YouTube-Downloader',    # exe 파일명
         '--icon=../assets/youtube_downloader_icon.ico',  # YouTube 스타일 아이콘
-        '--add-data=ffmpeg.exe;.',      # ffmpeg 포함 (Windows용)
         '--hidden-import=PyQt5',
         '--hidden-import=yt_dlp',
         '--hidden-import=urllib3',
+        '--hidden-import=certifi',
+        '--hidden-import=requests',
     ]
 
-    # deno 포함 (YouTube JS challenge 해결용)
-    deno_path = shutil.which('deno')
-    if deno_path:
-        cmd.append(f'--add-binary={deno_path};.')
-        print(f"deno 포함: {deno_path}")
-    else:
-        print("경고: deno가 설치되어 있지 않습니다. YouTube 다운로드가 작동하지 않을 수 있습니다.")
+    # ffmpeg/ffprobe 없으면 병합·MP3 변환이, deno 없으면 YouTube JS 챌린지가 실패한다.
+    # 셋 다 필수이므로 하나라도 없으면 빌드하지 않는다 (빌드된 뒤 런타임에 터지는 편이 더 나쁘다).
+    missing = []
+    for name in ('ffmpeg', 'ffprobe', 'deno'):
+        path = shutil.which(name)
+        if path:
+            cmd.append(f'--add-binary={path};.')
+            print(f"{name} 포함: {path}")
+        else:
+            missing.append(name)
+
+    if missing:
+        print(f"오류: {', '.join(missing)} 를 PATH에서 찾을 수 없습니다.")
+        print("  ffmpeg/ffprobe: https://www.gyan.dev/ffmpeg/builds/")
+        print("  deno:           https://deno.com")
+        return
 
     cmd.append('../src/youtube_gui_pyqt.py')
-    
+
     print("EXE 파일 빌드 시작...")
     print(f"명령어: {' '.join(cmd)}")
     
